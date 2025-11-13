@@ -1,6 +1,3 @@
-### Default image is base. You can add other support by modifying BASE_IMAGE_TAG. The following parameters are supported: base (default), aria2, ffmpeg, aio
-ARG BASE_IMAGE_TAG=base
-
 FROM alpine:edge AS builder
 LABEL stage=go-builder
 WORKDIR /app/
@@ -10,24 +7,21 @@ RUN go mod download
 COPY ./ ./
 RUN bash build.sh release docker
 
+### Default image is base. You can add other support by modifying BASE_IMAGE_TAG. The following parameters are supported: base (default), aria2, ffmpeg, aio
+ARG BASE_IMAGE_TAG=base
 FROM openlistteam/openlist-base-image:${BASE_IMAGE_TAG}
-LABEL MAINTAINER="OpenList"
+
 ARG INSTALL_FFMPEG=false
 ARG INSTALL_ARIA2=false
+LABEL MAINTAINER="OpenList"
 
 WORKDIR /opt/openlist/
 
-# 直接创建数据目录，不创建普通用户
-RUN mkdir -p /opt/openlist/data
-
-# 复制文件，保持root所有权（默认就是root）
-COPY --from=builder --chmod=755 /app/bin/openlist ./
+COPY --chmod=755 --from=builder /app/bin/openlist ./
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
-
-# 移除用户切换，保持root运行
 RUN /entrypoint.sh version
 
-ENV UMASK=022 RUN_ARIA2=${INSTALL_ARIA2}
+ENV PUID=0 PGID=0 UMASK=022 RUN_ARIA2=${INSTALL_ARIA2}
 VOLUME /opt/openlist/data/
 EXPOSE 5244 5245
 CMD [ "/entrypoint.sh" ]
